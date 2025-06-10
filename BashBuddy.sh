@@ -1,18 +1,18 @@
 #!/bin/bash
 # Welcome to my bash buddy script :)
 
+#-------------------------------------------------------------------------------------------------------------------------
 # ASCII banner for a sick intro
 clear
-figlet "BashBuddy"
+figlet -f big "BashBuddy"
 echo "Your lazy pentest pal"
 echo
-
-
+#-------------------------------------------------------------------------------------------------------------------------
 # Section to declare color variables
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NORMAL='\033[0m'
-
+#-------------------------------------------------------------------------------------------------------------------------
 # Acquire the IP address of the target machine
 read -p  "Please input the IP address of the target: " IP_Address
 
@@ -33,5 +33,15 @@ else    # ping failed :(
                         break
                 fi
         done
-        echo -e "${RED}[+] The machine is not active :(${NORMAL}"
+        echo -e "${RED}[+] Target is not active or unreachable. Exiting :(${NORMAL}"
+        exit 1
 fi
+#-------------------------------------------------------------------------------------------------------------------------
+# Prompt the menu to the user
+figlet -f small "Menu"
+echo "1) Full Recon (nmap, dirsearch, curl, whois)"
+echo "2) Quick Port Scan (nmap)"
+echo "3) Quick Webscan (dirsearch)"
+echo "4) Custom command"
+echo "5) Exit"
+read -p "What would you like to do with the target? " user_choice
