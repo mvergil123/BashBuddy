@@ -81,11 +81,11 @@ Run_hydra(){
                 case "$port" in
                         80)
                                 # hydra on port 80
-                        hydra -L "$userf" -P "$passwdf" "$ip" http-post-form "/login.php:user=^USER^&pass=^PASS^:F=incorrect" -o results/$ip/hydra_http.txt
+                        hydra -L "$userf" -P "$passwdf" "$ip" http-post-form "/login.php:username=^USER^&password=^PASS^:F=Invalid username or password"
                         ;;
                         443)
                                 # hydra on port 443
-                        hydra -L "$userf" -P "$passwdf" "$ip" https-post-form "/login.php:user=^USER^&pass=^PASS^:F=incorrect" -o results/$ip/hydra_https.txt
+                        hydra -L "$userf" -P "$passwdf" "$ip" https-post-form "/login.php:username=^USER^&password=^PASS^:F=Invalid username or password"
                         ;;
                 esac
 
@@ -98,11 +98,11 @@ Run_hydra(){
         case "$port" in
                         80)
                                 # hydra on port 80
-                        hydra -L "$userf" -P "$passwdf" "$ip" http-post-form "/login.php:user=^USER^&pass=^PASS^:F=incorrect>
+                        hydra -L "$userf" -P "$passwdf" "$ip" http-post-form "/login.php:username=^USER^&password=^PASS^:F=Invalid username or password"
                         ;;
                         443)
                                 # hydra on port 443
-                        hydra -L "$userf" -P "$path" "$ip" https-post-form "/login.php:user=^USER^&pass=^PASS^:F=incorrec>
+                        hydra -L "$userf" -P "$passwdf" "$ip_or_hostname" https-post-form "/login.php:username=^USER^&password=^PASS^:F=Invalid username or password"
                         ;;
                 esac
                 fi
@@ -186,7 +186,7 @@ Full_Recon(){
                                 echo -e "I don't blame you, hydra takes a while :)"
 
         # check if login page is found on port 80
-        else if grep -q -i "login.php" "results/$ip/dirsearch_port80.txt"; then
+        elif grep -q -i "login.php" "results/$ip/dirsearch_port80.txt"; then
                 echo -e "${GREEN}[+]Login page was found on http${NORMAL}"
                 read -rp "Would you like to run hydra on the site? (Y) or (N)" choice
                 if [[ "${choice,,}" = "y" ]]; then
@@ -194,7 +194,7 @@ Full_Recon(){
                 fi
 
         # check if login page is found on port 443
-        else if grep -q -i "login.php" "results/$ip/dirsearch_port443.txt"; then
+        elif grep -q -i "login.php" "results/$ip/dirsearch_port443.txt"; then
                 echo -e "${GREEN}[+]Login page was found on https${NORMAL}"
                 read -rp "Would you like to run hydra on the site? (Y) or (N)" choice
                 if [[ "${choice,,}" = "y" ]]; then
