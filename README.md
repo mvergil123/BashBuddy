@@ -4,6 +4,6 @@ A Bash script that acts like a pentesting Swiss Army knife.  Just input a target
 
 # Before using make sure to install these tools:
 - Figlet
-- nc
+- hydra
 - nmap
 - dirsearch
