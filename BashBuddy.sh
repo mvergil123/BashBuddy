@@ -81,31 +81,39 @@ Run_hydra(){
 		case "$port" in
 			80)
 				# hydra on port 80
-				hydra -L "$userf" -P "$passwdf" "$ip" http-post-form "/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \ -o "results/$ip/hydra_http_login.txt" &> /dev/null
+				hydra -L "$userf" -P "$passwdf" "$ip" http-post-form \
+				"/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \
+				-o "results/$ip/hydra_http_login.txt" &> /dev/null
 			;;
 			443)
 				# hydra on port 443
-				hydra -L "$userf" -P "$passwdf" "$ip" https-post-form "/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \ -o "results/$ip/hydra_https_login.txt" &> /dev/null
+				hydra -L "$userf" -P "$passwdf" "$ip" https-post-form \
+				"/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \
+				-o "results/$ip/hydra_https_login.txt" &> /dev/null
 			;;
 		esac
-
+		
 # running hydra normally
         else
         # ask the user for the path to the wordlist
         userf="results/$ip/usernames.txt"       # creating a generic username file to use with hydra
         echo -e "root\n admin\n user\n test\n ubuntu\n guest\n" > "$userf"
         read -rp "Please input the path to the wordlist you would like to use for hydra: " path
-	case "$port" in
-            80)
+		case "$port" in
+			80)
 				# hydra on port 80
-				hydra -L "$userf" -P "$passwdf" "$ip" http-post-form "/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \ -o "results/$ip/hydra_http_login.txt" &> /dev/null
+				hydra -L "$userf" -P "$passwdf" "$ip" http-post-form \
+				"/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \
+				-o "results/$ip/hydra_http_login.txt" &> /dev/null
 			;;
 			443)
 				# hydra on port 443
-				hydra -L "$userf" -P "$passwdf" "$ip" https-post-form "/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \ -o "results/$ip/hydra_https_login.txt" &> /dev/null
+				hydra -L "$userf" -P "$passwdf" "$ip" https-post-form \
+				"/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \
+				-o "results/$ip/hydra_https_login.txt" &> /dev/null
 			;;
-                esac
-                fi
+		esac
+    fi
 }
 #-------------------------------------------------------------------------------------------------------------------------
 # Full Recon Function
@@ -117,7 +125,6 @@ Full_Recon(){
 
 	echo "Commencing Full Recon. This may take a while...."
 	ip="$1"
-	mkdir -p results/$ip # create results dir if not already created
 
 	# Verbose nmap scan on IP for open ports
 	#nmap -vv -sV -p- -oG results/$ip/nmap.grep "$ip" &> /dev/null	# verbose nmap scan on all ports and write results to file
@@ -138,28 +145,31 @@ Full_Recon(){
 
 	# Brute force port 22 if opened with Hydra
 	if IsPortOpen "$ip" 22; then
-		echo "Port 22 is open for ssh - attempting to bruteforce using hydra"
-		echo "Would you like to add any possible usernames/passwords that you think might work?"
-		read -p "Y or N" user_choice
+		echo "Port 22 is open for ssh"
+		read -rp "Would you like to run hydra on the port 22? (Y) or (N)" choice
+		if [[ "${choice,,}" = "y" ]]; then
+			echo "Would you like to add any possible usernames/passwords that you think might work?"
+			read -p "(Y) or (N)" user_choice
 
-		# user wants to use their own username and passwords
-		if [[ "${user_choice,,}" = "y" ]]; then		# check for both lowercase and uppercase
-			userf="results/$ip/usernames.txt"      # Creating temp file for usernames
-		    passwdf="results/$ip/passwords.txt"    # Creating temp file for passwords
+			# user wants to use their own username and passwords
+			if [[ "${user_choice,,}" = "y" ]]; then		# check for both lowercase and uppercase
+				userf="results/$ip/usernames.txt"      # Creating temp file for usernames
+				passwdf="results/$ip/passwords.txt"    # Creating temp file for passwords
 
-			Get_usernames_passwords "$userf" "$passwdf"
-			hydra -L "$userf" -P "$passwdf" ssh://"$ip" -o "results/$ip/hydra_ssh.txt" &> /dev/null
+				Get_usernames_passwords "$userf" "$passwdf"
+				hydra -L "$userf" -P "$passwdf" ssh://"$ip" -o "results/$ip/hydra_ssh.txt" &> /dev/null
 
-		# running hydra normally
-		else
-		# ask the user for the path to the wordlist
-		userf="results/$ip/usernames.txt"	# creating a generic username file to use with hydra
-		echo -e "root\n admin\n user\n test\n ubuntu\n guest\n" > "$userf"
-		read -rp "Please input the path to the wordlist you would like to use for hydra: " path
-		hydra -L "$userf" -P "$path" ssh://"$ip" -o "results/$ip/hydra_ssh.txt" &> /dev/null
+			# running hydra normally
+			else
+			# ask the user for the path to the wordlist
+				userf="results/$ip/usernames.txt"	# creating a generic username file to use with hydra
+				echo -e "root\n admin\n user\n test\n ubuntu\n guest\n" > "$userf"
+				read -rp "Please input the path to the wordlist you would like to use for hydra: " path
+				hydra -L "$userf" -P "$path" ssh://"$ip" -o "results/$ip/hydra_ssh.txt" &> /dev/null
+			fi
+			echo -e "${GREEN}[+] Hydra completed on port 22${NORMAL}"
 		fi
-		echo -e "${GREEN}[+] Hydra completed on port 22${NORMAL}"
-
+		echo "I don't blame you, Hydra takes a while :)"
 	fi
 
 	# if login page found with dirsearch, run hydra
@@ -220,4 +230,8 @@ echo "3) Quick Webscan"
 echo "4) Custom command"
 echo "5) Exit"
 read -p "What would you like to do with the target? " user_choice
+mkdir -p results/$IP_Address # create results dir if not already created
+echo -e  "${GREEN}Results directory has been created. You can now view the output of the scans as they are occurring.${NORMAL} "
+
+
 Full_Recon "$IP_Address"
