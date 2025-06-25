@@ -70,50 +70,57 @@ Get_usernames_passwords(){
 Run_hydra(){
 	port=$1
 	ip=$2
+	errorstr=$3
 	echo "Would you like to add any possible usernames/passwords that you think might work?"
-        read -p "Y or N" user_choice
+        read -p "(Y) or (N) " user_choice
         # user wants to use their own username and passwords
         if [[ "${user_choice,,}" = "y" ]]; then         # check for both lowercase and uppercase
         		userf="results/$ip/usernames.txt"      # Creating temp file for usernames
                 passwdf="results/$ip/passwords.txt"    # Creating temp file for passwords
 
                 Get_usernames_passwords userf passwdf
+
 		case "$port" in
-			80)
-				# hydra on port 80
-				hydra -L "$userf" -P "$passwdf" "$ip" http-post-form \
-				"/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \
-				-o "results/$ip/hydra_http_login.txt" &> /dev/null
-			;;
-			443)
-				# hydra on port 443
-				hydra -L "$userf" -P "$passwdf" "$ip" https-post-form \
-				"/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \
-				-o "results/$ip/hydra_https_login.txt" &> /dev/null
-			;;
-		esac
+        80)
+            # hydra on port 80
+            hydra -L "$userf" -P "$passwdf" "$ip" http-post-form \
+            "/login.php:username=^USER^&password=^PASS^:F=$errorstr" \
+            -o "results/$ip/hydra_http_login.txt" &> /dev/null
+            ;;
+        443)
+            # hydra on port 443
+            hydra -L "$userf" -P "$passwdf" "$ip" https-post-form \
+            "/login.php:username=^USER^&password=^PASS^:F=$errorstr" \
+            -o "results/$ip/hydra_https_login.txt" &> /dev/null
+            ;;
+    esac
 		
 # running hydra normally
         else
         # ask the user for the path to the wordlist
         userf="results/$ip/usernames.txt"       # creating a generic username file to use with hydra
-        echo -e "root\n admin\n user\n test\n ubuntu\n guest\n" > "$userf"
+        echo -e "root\nadmin\nuser\ntest\nubuntu\nguest" > "$userf"
         read -rp "Please input the path to the wordlist you would like to use for hydra: " path
 		case "$port" in
 			80)
 				# hydra on port 80
-				hydra -L "$userf" -P "$passwdf" "$ip" http-post-form \
-				"/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \
+				hydra -L "$userf" -P "$path" "$ip" http-post-form \
+				"/login.php:username=^USER^&password=^PASS^:F=$errorstr" \
 				-o "results/$ip/hydra_http_login.txt" &> /dev/null
 			;;
 			443)
 				# hydra on port 443
-				hydra -L "$userf" -P "$passwdf" "$ip" https-post-form \
-				"/login.php:username=^USER^&password=^PASS^:F=Invalid username or password" \
+				hydra -L "$userf" -P "$path" "$ip" https-post-form \
+				"/login.php:username=^USER^&password=^PASS^:F=$errorstr" \
 				-o "results/$ip/hydra_https_login.txt" &> /dev/null
 			;;
 		esac
-    fi
+		fi
+    read -rp "Delete temporary username/password files? (Y) or (N): " del_choice
+	if [[ "${del_choice,,}" = "y" ]]; then
+    	rm -f "$userf" "$passwdf"
+    	echo "Temporary files deleted."
+	fi
 }
 #-------------------------------------------------------------------------------------------------------------------------
 # Full Recon Function
@@ -127,7 +134,7 @@ Full_Recon(){
 	ip="$1"
 
 	# Verbose nmap scan on IP for open ports
-	#nmap -vv -sV -p- -oG results/$ip/nmap.grep "$ip" &> /dev/null	# verbose nmap scan on all ports and write results to file
+	nmap -vv -sV -p- -oG results/$ip/nmap.grep "$ip" &> /dev/null	# verbose nmap scan on all ports and write results to file
 	echo -e "${GREEN}[+] Nmap scan completed${NORMAL}"
 
 	# Check if ports 80 or 443 are opened to utilize dirsearch and curl
@@ -141,15 +148,17 @@ Full_Recon(){
 		echo "\n----------------------- Curl Report -----------------------\n" >> "results/$ip/dirsearch_port443.txt"
 		curl -sk "https://$ip" >> "results/$ip/dirsearch_port443.txt"
 	fi
+	rm -rf reports	# removing the default dir created by dirsearch
+
 	echo -e "${GREEN}[+] Dirsearch and curl completed${NORMAL}"
 
 	# Brute force port 22 if opened with Hydra
 	if IsPortOpen "$ip" 22; then
 		echo "Port 22 is open for ssh"
-		read -rp "Would you like to run hydra on the port 22? (Y) or (N)" choice
+		read -rp "Would you like to run hydra on the port 22? (Y) or (N) " choice
 		if [[ "${choice,,}" = "y" ]]; then
 			echo "Would you like to add any possible usernames/passwords that you think might work?"
-			read -p "(Y) or (N)" user_choice
+			read -p "(Y) or (N) " user_choice
 
 			# user wants to use their own username and passwords
 			if [[ "${user_choice,,}" = "y" ]]; then		# check for both lowercase and uppercase
@@ -167,30 +176,39 @@ Full_Recon(){
 				read -rp "Please input the path to the wordlist you would like to use for hydra: " path
 				hydra -L "$userf" -P "$path" ssh://"$ip" -o "results/$ip/hydra_ssh.txt" &> /dev/null
 			fi
-			echo -e "${GREEN}[+] Hydra completed on port 22${NORMAL}"
+			echo -e "${GREEN}[+] Hydra completed on port 22${NORMAL}\n"
+			read -rp "Delete temporary username/password files? (Y) or (N): " del_choice
+			if [[ "${del_choice,,}" = "y" ]]; then
+				rm -f "$userf" "$passwdf"
+			fi
 		fi
 		echo "I don't blame you, Hydra takes a while :)"
 	fi
 
+
 	# if login page found with dirsearch, run hydra
 	# checking if a login page is found on both port 80 and 443
-	if grep -q -i "login.php" "results/$ip/dirsearch_port80.txt" && grep -r -i "login.php" "results/$ip/dirsearch_port443.txt"; then
+	if [[ -f "results/$ip/dirsearch_port443.txt" ]] && grep -qi "login.php" "results/$ip/dirsearch_port80.txt" && grep -qi "login.php" "results/$ip/dirsearch_port443.txt"; then
 		echo "${GREEN}[+]Login page was found on both http and https${NORMAL}"
 		echo "1) HTTP only"
 		echo "2) HTTPS only"
 		echo "3) Both"
 		echo "4) Neither"
 		read -rp "Select what you would like to run hydra on: " choice
-		case "$port" in
+		if [[ "$choice" == "1" || "$choice" == "2" || "$choice" == "3" ]]; then
+			read -p "To ensure most accuracy with hydra pls navigate to $ip/login.php and attempt any login. Please copy the error message and paste it here: " errorstr
+		fi
+		echo ""
+		case "$choice" in
 			1)
-				Run_hydra 80 "$ip"
+				Run_hydra 80 "$ip" "$errorstr"
 			;;
 			2)
-				Run_hydra 443 "$ip"
+				Run_hydra 443 "$ip" "$errorstr"
 			;;
 			3)
-				Run_hydra 80 "$ip"
-				Run_hydra 443 "$ip"
+				Run_hydra 80 "$ip" "$errorstr"
+				Run_hydra 443 "$ip" "$errorstr"
 			;;
 			4)
 				echo -e "I don't blame you, hydra takes a while :)"
@@ -199,18 +217,20 @@ Full_Recon(){
 	# check if login page is found on port 80
 	elif grep -q -i "login.php" "results/$ip/dirsearch_port80.txt"; then
 		echo -e "${GREEN}[+]Login page was found on http${NORMAL}"
-		read -rp "Would you like to run hydra on the site? (Y) or (N)" choice
+		read -rp "Would you like to run hydra on the site? (Y) or (N) " choice
 		if [[ "${choice,,}" = "y" ]]; then
-			Run_hydra 80 "$ip"
+			read -p "To ensure most accuracy with hydra pls navigate to $ip/login.php and attempt any login. Please copy the error message and paste it here: " errorstr
+			Run_hydra 80 "$ip" "$errorstr"
 		fi
 
 	# check if login page is found on port 443
 	elif grep -q -i "login.php" "results/$ip/dirsearch_port443.txt"; then
 		echo -e "${GREEN}[+]Login page was found on https${NORMAL}"
-                read -rp "Would you like to run hydra on the site? (Y) or (N)" choice
+                read -rp "Would you like to run hydra on the site? (Y) or (N) " choice
 		if [[ "${choice,,}" = "y" ]]; then
-                        Run_hydra 443 "$ip"
-                fi
+				read -p "To ensure most accuracy with hydra pls navigate to $ip/login.php and attempt any login. Please copy the error message and paste it here: " errorstr
+                Run_hydra 443 "$ip" "$errorstr"
+        fi
 
 	# login page wasn't found on either port
 	else
@@ -218,7 +238,8 @@ Full_Recon(){
 	fi
 
 	# ALL DONE :)
-	echo -e "${GREEN}[+] All done :)\n [+] You may now review all the recon collected in the results directory${NORMAL}"
+	echo -e "${GREEN}[+] All done :)"
+	echo -e "[+] You may now review all the recon collected in the results directory${NORMAL}"
 	exit 1
 }
 #-------------------------------------------------------------------------------------------------------------------------
