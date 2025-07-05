@@ -2,41 +2,6 @@
 # Welcome to my bash buddy script :)
 
 #-------------------------------------------------------------------------------------------------------------------------
-# ASCII banner for a sick intro
-clear
-figlet -f big "BashBuddy"
-echo "Your lazy pentest pal"
-echo
-#-------------------------------------------------------------------------------------------------------------------------
-# Section to declare color variables
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NORMAL='\033[0m'
-#-------------------------------------------------------------------------------------------------------------------------
-# Acquire the IP address of the target machine
-read -p  "Please input the IP address of the target: " IP_Address
-
-# Ping the target to ensure that it is online (pinging first and then if it fails trying nc )
-ping -c 1 $IP_Address > /dev/null 2>&1	# pinging the target and silence the output (more aesthetic)
-
-if [ $? -eq 0 ]; then	# the machine is active
-	# prompt the menu
-	echo -e "${GREEN}[+] Host is up${NORMAL}"
-
-else	# ping failed :(
-	echo -e "${RED}[+] Ping Failed${NORMAL}"
-	echo "Trying netcat scans on common ports in case ICMP is blocked..."
-	for port in 22, 80, 443; do  # for loop of common ports to run with netcat in case ICMP is blocked but machine is up
-		nc -z -w2 $IP_Address $port > /dev/null 2>&1
-		if [ $? -eq 0 ]; then
-			echo -e "${GREEN}[+] Host is up${NORMAL}"
-			break
-		fi
-	done
-	echo -e "${RED}[+] Target is not active or unreachable. Exiting :(${NORMAL}"
-	exit 1
-fi
-#-------------------------------------------------------------------------------------------------------------------------
 # Is port open function for dirsearch
 IsPortOpen(){
 	ip="$1"
@@ -243,16 +208,78 @@ Full_Recon(){
 	exit 1
 }
 #-------------------------------------------------------------------------------------------------------------------------
-# Prompt the menu to the user
-figlet -f small "Menu"
-echo "1) Full Recon"
-echo "2) Quick Port Scan"
-echo "3) Quick Webscan"
-echo "4) Custom command"
-echo "5) Exit"
-read -p "What would you like to do with the target? " user_choice
-mkdir -p results/$IP_Address # create results dir if not already created
-echo -e  "${GREEN}Results directory has been created. You can now view the output of the scans as they are occurring.${NORMAL} "
+# Menu Function
+Menu(){
+	ip=$1
+	# Prompt the menu to the user
+	figlet -f small "Menu"
+	echo "1) Full Recon"
+	echo "2) Quick Port Scan"
+	echo "3) Quick Webscan"
+	echo "4) Custom command"
+	echo "5) Exit"
+	read -p "What would you like to do with the target? " menu_choice
 
+	if [ "$menu_choice" != 5 ]; then
+		mkdir -p results/$ip # create results dir if not already created
+		echo -e  "${GREEN}Results directory has been created. You can now view the output of the scans as they are occurring.${NORMAL} "
+	fi
 
-Full_Recon "$IP_Address"
+	# switch case for selecting option
+	case "$menu_choice" in 
+		1) Full_Recon "$ip"
+		;;
+		2) echo "Quick port scan"	# Quick port Scan 
+		;;
+		3) echo "Quick webscan"	# Quick Webscan
+		;;
+		4) echo "custom command"	# Custom command
+		;;
+		5)	exit 1
+	esac
+}
+#-------------------------------------------------------------------------------------------------------------------------
+# ASCII banner for a sick intro
+clear
+figlet -f big "BashBuddy"
+echo "Your lazy pentest pal"
+echo
+#-------------------------------------------------------------------------------------------------------------------------
+# Section to declare color variables
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NORMAL='\033[0m'
+#-------------------------------------------------------------------------------------------------------------------------
+# Main part of the program 
+
+# Acquire the IP address of the target machine
+read -p  "Please input the IP address of the target: " IP_Address
+
+# Ping the target to ensure that it is online (pinging first and then if it fails trying nc )
+ping -c 1 $IP_Address > /dev/null 2>&1	# pinging the target and silence the output (more aesthetic)
+
+if [ $? -eq 0 ]; then	# the machine is active
+	# prompt the menu
+	echo -e "${GREEN}[+] Host is up${NORMAL}"
+
+else	# ping failed :(
+	isHostUp=false
+	echo -e "${RED}[+] Ping Failed${NORMAL}"
+	echo "Trying netcat scans on common ports in case ping is blocked..."
+	for port in 22, 80, 443; do  # for loop of common ports to run with netcat in case ICMP is blocked but machine is up
+		nc -z -w2 $IP_Address $port > /dev/null 2>&1
+		if [ $? -eq 0 ]; then
+			echo -e "${GREEN}[+] Host is up${NORMAL}"
+			isHostUp=true
+			break
+		fi
+	done
+
+	if [ "$isHostUp" = false ]; then 
+		echo -e "${RED}[+] Target is not active or unreachable. Exiting :(${NORMAL}"
+		exit 1
+	fi 
+fi
+
+# present the menu to the user
+Menu "$IP_Address"
